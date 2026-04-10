@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Alex | Поиск по нику</title>
+    <title>Alex | Мессенджер</title>
     <style>
         * {
             margin: 0;
@@ -193,6 +193,9 @@
             overflow-y: auto;
             margin-top: 8px;
             display: none;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            padding: 4px;
         }
 
         .search-result-item {
@@ -206,7 +209,7 @@
         }
 
         .search-result-item:hover {
-            background: rgba(139, 92, 246, 0.3);
+            background: rgba(139, 92, 246, 0.5);
         }
 
         .search-result-avatar {
@@ -418,9 +421,6 @@
             border-radius: 24px;
             overflow: hidden;
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .local-video-box {
@@ -433,9 +433,6 @@
             border-radius: 16px;
             overflow: hidden;
             border: 2px solid #7c3aed;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         video {
@@ -574,7 +571,7 @@
 <div id="authScreen" class="auth-screen">
     <div class="auth-card">
         <h1>💜 Alex</h1>
-        <p style="margin-bottom: 24px;">Поиск людей по нику</p>
+        <p style="margin-bottom: 24px;">Мессенджер с поиском</p>
         <input type="text" id="authUsername" placeholder="Имя пользователя">
         <input type="password" id="authPassword" placeholder="Пароль">
         <button class="btn-primary" id="authSubmitBtn">Войти</button>
@@ -596,7 +593,6 @@
                 </div>
             </div>
             
-            <!-- ПОИСК ПО НИКУ -->
             <div class="search-section">
                 <div class="search-box">
                     <input type="text" id="searchNickInput" placeholder="🔍 Поиск по нику...">
@@ -605,7 +601,7 @@
                 <div id="searchResults" class="search-results"></div>
             </div>
             
-            <div class="chats-title">💬 ЧАТЫ</div>
+            <div class="chats-title">💬 МОИ ЧАТЫ</div>
             <div class="users-list" id="usersList"></div>
         </div>
 
@@ -680,10 +676,12 @@
         if (storedUsers) {
             users = JSON.parse(storedUsers);
         } else {
+            // Начальные пользователи
             users = [
                 { id: "1", username: "Анна", password: "123", avatar: "🌸", status: "онлайн", online: true },
                 { id: "2", username: "Максим", password: "123", avatar: "💪", status: "онлайн", online: true },
-                { id: "3", username: "Екатерина", password: "123", avatar: "🎨", status: "онлайн", online: true }
+                { id: "3", username: "Екатерина", password: "123", avatar: "🎨", status: "онлайн", online: true },
+                { id: "4", username: "Дмитрий", password: "123", avatar: "💻", status: "онлайн", online: true }
             ];
             saveDatabase();
         }
@@ -693,6 +691,8 @@
         } else {
             messages = [];
         }
+        
+        console.log('База данных загружена. Пользователи:', users.map(u => u.username));
     }
     
     function saveDatabase() {
@@ -714,6 +714,7 @@
         };
         users.push(newUser);
         saveDatabase();
+        console.log('Зарегистрирован новый пользователь:', username);
         return { success: true, user: newUser };
     }
     
@@ -722,20 +723,19 @@
         if (user) {
             user.online = true;
             saveDatabase();
+            console.log('Вошёл пользователь:', username);
             return { success: true, user: { ...user } };
         }
+        console.log('Ошибка входа:', username);
         return { success: false, error: 'Неверные данные' };
     }
     
     function getUserById(id) {
-        const user = users.find(u => u.id === id);
-        return user ? { ...user } : null;
+        return users.find(u => u.id === id);
     }
     
     function getOtherUsers(currentId) {
-        return users.filter(u => u.id !== currentId).map(u => ({
-            id: u.id, username: u.username, avatar: u.avatar, status: u.status, online: u.online
-        }));
+        return users.filter(u => u.id !== currentId);
     }
     
     function updateUser(userId, updates) {
@@ -764,28 +764,30 @@
         return msgs[msgs.length - 1];
     }
     
-    // ПОИСК ПОЛЬЗОВАТЕЛЕЙ ПО НИКУ
+    // ========== ПОИСК ПОЛЬЗОВАТЕЛЕЙ ==========
     function searchUsersByNick(query) {
-        if (!query.trim()) return [];
-        const lowerQuery = query.toLowerCase();
-        return users.filter(u => 
+        if (!query || query.trim() === '') return [];
+        const lowerQuery = query.toLowerCase().trim();
+        const results = users.filter(u => 
             u.id !== currentUser.id && 
             u.username.toLowerCase().includes(lowerQuery)
         );
+        console.log('Поиск:', query, 'Найдено:', results.length, results.map(r => r.username));
+        return results;
     }
     
     function renderSearchResults(query) {
         const container = document.getElementById('searchResults');
         const results = searchUsersByNick(query);
         
-        if (results.length === 0 && query.trim()) {
-            container.style.display = 'block';
-            container.innerHTML = '<div class="no-results">👤 Пользователь не найден</div>';
+        if (!query || query.trim() === '') {
+            container.style.display = 'none';
             return;
         }
         
-        if (query.trim() === '') {
-            container.style.display = 'none';
+        if (results.length === 0) {
+            container.style.display = 'block';
+            container.innerHTML = '<div class="no-results">😕 Пользователь с ником "' + escapeHtml(query) + '" не найден</div>';
             return;
         }
         
@@ -803,17 +805,17 @@
         document.querySelectorAll('.search-result-item').forEach(el => {
             el.onclick = () => {
                 const userId = el.dataset.id;
-                activeChatUserId = userId;
-                const user = getOtherUsers(currentUser.id).find(u => u.id === userId);
+                const user = users.find(u => u.id === userId);
                 if (user) {
+                    activeChatUserId = userId;
                     document.getElementById('chatUserName').innerText = user.username;
                     document.getElementById('chatAvatar').innerHTML = user.avatar || "💜";
                     document.getElementById('chatUserStatus').innerHTML = user.online ? '🟢 онлайн' : '⚫ офлайн';
+                    renderUsersList();
+                    renderMessages();
+                    document.getElementById('searchResults').style.display = 'none';
+                    document.getElementById('searchNickInput').value = '';
                 }
-                renderUsersList();
-                renderMessages();
-                document.getElementById('searchResults').style.display = 'none';
-                document.getElementById('searchNickInput').value = '';
             };
         });
     }
@@ -851,6 +853,11 @@
         const container = document.getElementById('usersList');
         if (!container || !currentUser) return;
         const others = getOtherUsers(currentUser.id);
+        
+        if (others.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#a19bcf; padding:20px;">Нет других пользователей</div>';
+            return;
+        }
         
         container.innerHTML = others.map(user => {
             const last = getLastMessage(currentUser.id, user.id);
@@ -1128,7 +1135,7 @@
     document.getElementById('cancelProfileBtn').onclick = closeProfile;
     document.getElementById('overlay').onclick = closeProfile;
     
-    // Поиск по нику
+    // Поиск
     document.getElementById('searchBtn').onclick = () => {
         const query = document.getElementById('searchNickInput').value;
         renderSearchResults(query);
