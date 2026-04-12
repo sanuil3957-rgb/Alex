@@ -19,7 +19,6 @@
             color: #f0f0ff;
         }
 
-        /* Экран авторизации */
         .auth-screen {
             display: flex;
             justify-content: center;
@@ -36,7 +35,6 @@
             width: 100%;
             max-width: 380px;
             border: 1px solid rgba(140, 100, 220, 0.5);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
 
         .auth-card h1 {
@@ -46,7 +44,6 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            margin-bottom: 8px;
         }
 
         .auth-card p {
@@ -64,12 +61,6 @@
             border-radius: 28px;
             color: white;
             font-size: 16px;
-            outline: none;
-        }
-
-        .auth-card input:focus {
-            border-color: #9b6dff;
-            box-shadow: 0 0 0 2px rgba(155, 109, 255, 0.3);
         }
 
         .btn-primary {
@@ -79,7 +70,6 @@
             border-radius: 28px;
             color: white;
             font-weight: bold;
-            font-size: 16px;
             cursor: pointer;
             width: 100%;
             margin-top: 16px;
@@ -112,7 +102,6 @@
             margin-top: 10px;
         }
 
-        /* Основное приложение */
         .app-container {
             display: none;
             height: 100vh;
@@ -123,7 +112,6 @@
             height: 100vh;
         }
 
-        /* Боковая панель (список чатов) */
         .sidebar {
             width: 320px;
             background: rgba(18, 14, 45, 0.97);
@@ -180,7 +168,6 @@
             font-size: 13px;
         }
 
-        /* Поиск */
         .search-section {
             padding: 16px;
             border-bottom: 1px solid #3c2e6b;
@@ -199,7 +186,6 @@
             border-radius: 24px;
             color: white;
             font-size: 14px;
-            outline: none;
         }
 
         .search-box button {
@@ -211,7 +197,6 @@
             cursor: pointer;
         }
 
-        /* Список пользователей */
         .users-list {
             flex: 1;
             overflow-y: auto;
@@ -225,7 +210,6 @@
             padding: 12px;
             border-radius: 16px;
             cursor: pointer;
-            transition: background 0.1s;
             margin-bottom: 4px;
         }
 
@@ -271,7 +255,6 @@
             margin-left: 6px;
         }
 
-        /* Основная область чата */
         .chat-area {
             flex: 1;
             display: flex;
@@ -313,7 +296,6 @@
             color: #b794f4;
         }
 
-        /* Сообщения */
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -357,7 +339,6 @@
             margin-left: 8px;
         }
 
-        /* Поле ввода */
         .input-area {
             padding: 16px;
             background: rgba(30, 25, 70, 0.9);
@@ -374,7 +355,6 @@
             border-radius: 30px;
             color: white;
             font-size: 16px;
-            outline: none;
         }
 
         .input-area button {
@@ -417,7 +397,6 @@
 </head>
 <body>
 
-<!-- Экран авторизации -->
 <div id="authScreen" class="auth-screen">
     <div class="auth-card">
         <h1>💜 Alex</h1>
@@ -434,10 +413,8 @@
     </div>
 </div>
 
-<!-- Основное приложение -->
 <div id="appContainer" class="app-container">
     <div class="messenger">
-        <!-- Боковая панель -->
         <div class="sidebar" id="sidebar">
             <div class="profile-header">
                 <div class="profile-row">
@@ -458,13 +435,14 @@
             </div>
             
             <div style="padding: 12px 16px; font-size: 12px; color: #a19bcf;">
-                👥 Все пользователи
+                👥 ВСЕ ПОЛЬЗОВАТЕЛИ
             </div>
-            <div class="users-list" id="usersList"></div>
+            <div class="users-list" id="usersList">
+                <div style="text-align:center; padding:20px;">Загрузка...</div>
+            </div>
             <div class="status-badge" id="connectionStatus">🟡 Подключение...</div>
         </div>
 
-        <!-- Область чата -->
         <div class="chat-area">
             <div class="chat-header">
                 <div class="chat-avatar" id="chatAvatar">💜</div>
@@ -489,83 +467,97 @@
 <script>
     let peer = null;
     let currentUser = null;
-    let users = [];
+    let allUsers = [];
     let connections = {};
     let activeChatPeerId = null;
     let activeChatName = null;
-    let allUsers = [];
-
-    // ========== РАБОТА С ХРАНИЛИЩЕМ ==========
+    
+    // Загрузка пользователей из localStorage
     function loadUsers() {
         const saved = localStorage.getItem('alex_users');
         if (saved) {
-            users = JSON.parse(saved);
-        } else {
-            users = [];
+            return JSON.parse(saved);
         }
+        return [];
     }
-
-    function saveUsers() {
+    
+    function saveUsers(users) {
         localStorage.setItem('alex_users', JSON.stringify(users));
+        // Обновляем список у всех открытых вкладок
+        window.dispatchEvent(new Event('storage'));
     }
-
-    // ========== РЕГИСТРАЦИЯ И ВХОД ==========
+    
+    // Регистрация
     function register() {
         const phone = document.getElementById('authPhone').value.trim();
         const name = document.getElementById('authName').value.trim();
         const password = document.getElementById('authPassword').value.trim();
-
+        
         if (!phone || !name || !password) {
             document.getElementById('authError').innerText = '❌ Заполните все поля';
             return;
         }
-
+        
+        let users = loadUsers();
+        
         if (users.find(u => u.phone === phone)) {
             document.getElementById('authError').innerText = '❌ Этот номер уже зарегистрирован';
             return;
         }
-
+        
         const newUser = {
             id: Date.now().toString(),
             phone: phone,
             name: name,
             password: password,
-            avatar: '💜'
+            avatar: '💜',
+            online: true
         };
-
+        
         users.push(newUser);
-        saveUsers();
-
+        saveUsers(users);
+        
         document.getElementById('authError').innerText = '✅ Регистрация успешна! Теперь войдите';
         document.getElementById('authPhone').value = '';
         document.getElementById('authPassword').value = '';
+        document.getElementById('authName').value = '';
     }
-
+    
+    // Вход
     function login() {
         const phone = document.getElementById('authPhone').value.trim();
         const password = document.getElementById('authPassword').value.trim();
-
+        
+        let users = loadUsers();
         const user = users.find(u => u.phone === phone && u.password === password);
-
+        
         if (!user) {
             document.getElementById('authError').innerText = '❌ Неверный номер или пароль';
             return;
         }
-
+        
         currentUser = user;
         localStorage.setItem('alex_current_user', JSON.stringify(currentUser));
         
         initPeer();
     }
-
-    // ========== PEERJS ИНИЦИАЛИЗАЦИЯ ==========
+    
+    // Инициализация PeerJS
     function initPeer() {
         peer = new Peer();
         
         peer.on('open', (id) => {
+            // Обновляем peerId текущего пользователя
+            let users = loadUsers();
+            const userIndex = users.findIndex(u => u.id === currentUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].peerId = id;
+                users[userIndex].online = true;
+                saveUsers(users);
+            }
             currentUser.peerId = id;
-            saveUsers();
             
+            // Показываем интерфейс
             document.getElementById('myName').innerHTML = currentUser.name;
             document.getElementById('myPhone').innerHTML = `📱 ${currentUser.phone}`;
             document.getElementById('connectionStatus').innerHTML = '🟢 Онлайн';
@@ -574,15 +566,15 @@
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
             
-            // Загружаем всех пользователей
-            loadAllUsers();
+            // Загружаем список пользователей
+            refreshUsersList();
             
-            // Обновляем список каждые 3 секунды
+            // Обновляем список каждые 2 секунды
             setInterval(() => {
                 if (currentUser) {
-                    loadAllUsers();
+                    refreshUsersList();
                 }
-            }, 3000);
+            }, 2000);
         });
         
         peer.on('connection', (conn) => {
@@ -602,6 +594,12 @@
             if (data.type === 'message') {
                 if (activeChatPeerId === conn.peer) {
                     addMessage(data.fromName, data.text, false);
+                } else {
+                    // Показываем уведомление о новом сообщении
+                    const user = allUsers.find(u => u.peerId === conn.peer);
+                    if (user) {
+                        addSystemMessage(`📩 Новое сообщение от ${user.name}`);
+                    }
                 }
             }
         });
@@ -610,6 +608,7 @@
             delete connections[conn.peer];
             if (activeChatPeerId === conn.peer) {
                 addSystemMessage('🔌 Собеседник отключился');
+                document.getElementById('chatStatus').innerHTML = '⚫ офлайн';
             }
         });
     }
@@ -620,7 +619,8 @@
             activeChatName = userName;
             document.getElementById('chatName').innerHTML = userName;
             document.getElementById('chatStatus').innerHTML = '🟢 онлайн';
-            addSystemMessage(`✅ Вы начали чат с ${userName}`);
+            document.getElementById('chatAvatar').innerHTML = '💜';
+            addSystemMessage(`✅ Вы в чате с ${userName}`);
             return;
         }
         
@@ -632,6 +632,7 @@
             activeChatName = userName;
             document.getElementById('chatName').innerHTML = userName;
             document.getElementById('chatStatus').innerHTML = '🟢 онлайн';
+            document.getElementById('chatAvatar').innerHTML = '💜';
             addSystemMessage(`✅ Вы подключились к ${userName}`);
             
             conn.on('data', (data) => {
@@ -656,9 +657,10 @@
         });
     }
     
-    // ========== ЗАГРУЗКА ВСЕХ ПОЛЬЗОВАТЕЛЕЙ ==========
-    function loadAllUsers() {
-        allUsers = users.filter(u => u.id !== currentUser.id);
+    function refreshUsersList() {
+        let users = loadUsers();
+        // Фильтруем текущего пользователя
+        allUsers = users.filter(u => u.id !== currentUser?.id);
         renderUsersList();
     }
     
@@ -675,7 +677,7 @@
         }
         
         if (filtered.length === 0) {
-            container.innerHTML = '<div style="text-align:center; color:#a19bcf; padding:20px;">😕 Нет пользователей</div>';
+            container.innerHTML = '<div style="text-align:center; color:#a19bcf; padding:20px;">😕 Нет пользователей<br><span style="font-size:12px;">Попросите друга зарегистрироваться!</span></div>';
             return;
         }
         
@@ -709,7 +711,6 @@
         });
     }
     
-    // ========== СООБЩЕНИЯ ==========
     function sendMessage() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
@@ -739,6 +740,7 @@
     function addMessage(sender, text, isOwn) {
         const container = document.getElementById('messagesArea');
         
+        // Удаляем плейсхолдер если есть
         if (container.querySelector('.placeholder')) {
             container.innerHTML = '';
         }
@@ -757,11 +759,11 @@
     function addSystemMessage(text) {
         const container = document.getElementById('messagesArea');
         const msgDiv = document.createElement('div');
-        msgDiv.className = 'message system';
         msgDiv.style.textAlign = 'center';
         msgDiv.style.fontSize = '12px';
         msgDiv.style.color = '#a19bcf';
         msgDiv.style.margin = '10px 0';
+        msgDiv.style.padding = '5px';
         msgDiv.innerHTML = `💬 ${escapeHtml(text)}`;
         container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
@@ -774,15 +776,26 @@
     }
     
     function logout() {
+        // Обновляем статус пользователя
+        let users = loadUsers();
+        const userIndex = users.findIndex(u => u.id === currentUser?.id);
+        if (userIndex !== -1) {
+            users[userIndex].online = false;
+            saveUsers(users);
+        }
+        
         if (peer) peer.destroy();
         localStorage.removeItem('alex_current_user');
         currentUser = null;
         connections = {};
+        allUsers = [];
+        
         document.getElementById('authScreen').style.display = 'flex';
         document.getElementById('appContainer').style.display = 'none';
         document.getElementById('authPhone').value = '';
         document.getElementById('authPassword').value = '';
         document.getElementById('authName').value = '';
+        document.getElementById('messagesArea').innerHTML = '<div style="text-align: center; color: #a78bfa; margin-top: 50px;">✨ Нажмите на пользователя слева, чтобы начать общение ✨</div>';
     }
     
     function toggleSidebar() {
@@ -791,7 +804,7 @@
         }
     }
     
-    // ========== ОБРАБОТЧИКИ ==========
+    // Обработчики
     document.getElementById('loginBtn').onclick = login;
     document.getElementById('registerBtn').onclick = register;
     document.getElementById('logoutBtn').onclick = logout;
@@ -803,15 +816,19 @@
     });
     document.querySelector('.chat-header').onclick = toggleSidebar;
     
-    // Загрузка данных
-    loadUsers();
-    
     // Проверка сохранённой сессии
     const savedUser = localStorage.getItem('alex_current_user');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
         initPeer();
     }
+    
+    // Синхронизация между вкладками
+    window.addEventListener('storage', () => {
+        if (currentUser) {
+            refreshUsersList();
+        }
+    });
 </script>
 </body>
 </html>
